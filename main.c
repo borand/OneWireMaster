@@ -430,12 +430,12 @@ void OneWireLoadRom(void){
 	uint8_t pin, i, done=0;
 
 	for (pin = 0; pin < 3; pin++)
-	{
+	{		
 		therm_set_pin(pin);
 		if (Flags.print_json) 
 			rprintfProgStrM("[");		
 		done = 0;
-		for (i = 1; i < 20, done == 0; i++)
+		for (i = 0; i < 20, done == 0; i++)
 		{
 			if (Flags.print_json)
 			{
@@ -503,12 +503,13 @@ void OneSearch(void){
 	therm_search_init();
 	for (pin = 0; pin < 3; pin++)
 	{
-		therm_set_pin(pin);		
+		therm_set_pin(pin);
+		devNum=0;
 		while(OWNext())
-		{
-			devNum++;
+		{			
 			therm_save_devID(devNum);		
 			therm_test_func();
+			devNum++;
 		}
 	}
 	cmdlinePrintPromptEnd();
