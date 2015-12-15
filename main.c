@@ -27,7 +27,7 @@
 #include "onewire.h"
 #include "main.h"
 
-#define FW_VERSION "owire 15.12.12"
+#define FW_VERSION "\"owire 15.12.12\""
 
 ////////////////////////////////////////////////////////////////
 // INTERRUPT CONTROL
@@ -75,13 +75,12 @@ int main(void)
 	///////////////////////////////////////////////////////
 	DDRB  = _BV(PB0) | _BV(PB1) | _BV(PB5);
 	PORTD = _BV(PD2) | _BV(PD3) | _BV(PD4) | _BV(PD5) | _BV(PD6) | _BV(PD7);
+	
+	// PORT C is used as output for trigger signals
 	DDRC  = 0xff;
 	PORTC = 0xff;
 
-	//cbi(DDRD,PB2);
 	cbi(PORTB,PB5);
-	//cbi(DDRD,PB2);
-	//cbi(DDRD,PB3);
 
 	// GENERIC COMMANDS
 	cmdlineAddCommand("help", HelpFunction);
@@ -101,6 +100,9 @@ int main(void)
 	//////////////////////////////////////////////////////////////
 	//
 	cmdlineAddCommand("delay",  OneWireDelay);
+	cmdlineAddCommand("wbit",   OneWireWriteBit);
+	cmdlineAddCommand("rbit",   OneWireReadBit);
+	cmdlineAddCommand("wbyte",  OneWireWriteByte);
 	cmdlineAddCommand("rom",    OneWireReadRom);
 	cmdlineAddCommand("reset",  OneWireReset);
 	cmdlineAddCommand("load",   OneWireLoadRom);
@@ -123,13 +125,35 @@ int main(void)
 	CmdLineLoop();
 	return 0;
 }
-void PrintJson(void)
+void HelpFunction(void)
 {
-	uint8_t arg1 = (uint8_t) cmdlineGetArgInt(1);
-	Flags.print_json = arg1;
+	rprintfProgStrM("Instant commands:\n");
+	rprintfProgStrM("C                : clear screen\n");
+	rprintfProgStrM("R                : send reset pulse\n");
+	rprintfProgStrM("S                : perform binary search\n");
+	rprintfProgStrM("Z                : reset command number to zero\n");
+
+	rprintfProgStrM("\nCommands:\n");
+	rprintfProgStrM("idn              : prints device ID and version info\n");
+	rprintfProgStrM("test             : test function\n");
+	rprintfProgStrM("peek [reg]       : returns dec, hex and bin value of register\n");
+	rprintfProgStrM("poke [reg] [val] : sets register value to [val] \n");
+	rprintfProgStrM("test             : test function\n");
+
+	rprintfProgStrM("stream           : start streaming\n");
+
+	rprintfProgStrM("\n\nOnewire Commands:\n");
+	rprintfProgStrM("rom            : read rom of a single device\n");
+	rprintfProgStrM("load           : load eeprom content\n");
+	rprintfProgStrM("sp             : show scratch pad\n");
+	rprintfProgStrM("save           : save scratchpad to eeprom\n");
+	rprintfProgStrM("start          : start temperature measurement\n");
+	rprintfProgStrM("temp           : read temperatures\n");
+	rprintfProgStrM("data           : read data from 3824 device\n");
+	rprintfProgStrM("rp             : read specific page from 3824 device\n");
+	rprintfProgStrM("wp             : write data to specified page\n");
 }
-void CmdLineLoop(void)
-{
+void CmdLineLoop(void){
 	uint8_t  c;
 	// main loop
 	while (1)
@@ -159,7 +183,7 @@ void CmdLineLoop(void)
 				OneWireReset();			
 				break;
 			case 'S':
-				OneWireReset();			
+				OneSearch();			
 				break;
 			case 'Z':
 				cmdlineResetPrompt();
@@ -175,46 +199,19 @@ void CmdLineLoop(void)
 	}
 }
 
-void HelpFunction(void)
-{
-	rprintfProgStrM("Instant commands:\n");
-	rprintfProgStrM("C                : clear screen\n");
-	rprintfProgStrM("R                : send reset pulse\n");
-	rprintfProgStrM("S                : perform binary search\n");
-	rprintfProgStrM("Z                : reset command number to zero\n");
-
-	rprintfProgStrM("\nCommands:\n");
-	rprintfProgStrM("idn              : prints device ID and version info\n");
-	rprintfProgStrM("test             : test function\n");
-	rprintfProgStrM("peek [reg]       : returns dec, hex and bin value of register\n");
-	rprintfProgStrM("poke [reg] [val] : sets register value to [val] \n");
-	rprintfProgStrM("test             : test function\n");
-
-	rprintfProgStrM("stream           : start streaming\n");
-
-	rprintfProgStrM("\n\nOnewire Commands:\n");
-	rprintfProgStrM("rom            : read rom of a single device\n");
-	rprintfProgStrM("load           : load eeprom content\n");
-	rprintfProgStrM("sp             : show scratch pad\n");
-	rprintfProgStrM("save           : save scratchpad to eeprom\n");
-	rprintfProgStrM("start          : start temperature measurement\n");
-	rprintfProgStrM("temp           : read temperatures\n");
-	rprintfProgStrM("data           : read data from 3824 device\n");
-	rprintfProgStrM("rp             : read specific page from 3824 device\n");
-	rprintfProgStrM("wp             : write data to specified page\n");
-}
-
-void GetFW(void){
-	rprintfProgStrM("\"");
-	rprintfProgStrM(FW_VERSION);
-	rprintfProgStrM("\"");
+void GetFW(void){	
+	rprintfProgStrM(FW_VERSION);	
 	cmdlinePrintPromptEnd();
 }
 void GetIDN(void){
 	PrintLabel(&eep_dev_sn[0]);
 	cmdlinePrintPromptEnd();
 }
-
+void PrintJson(void)
+{
+	uint8_t arg1 = (uint8_t) cmdlineGetArgInt(1);
+	Flags.print_json = arg1;
+}
 ////////////////////////////////////////////////////////////////
 //Saving serial numbers
 void SetDevSNs(void){
@@ -267,13 +264,11 @@ void PrintLabel(Label_t *eep_label){
 
 ////////////////////////////////////////////////////////////////
 //Testing and utility functions
-void test(void)
-{
+void test(void){
 	uint8_t arg1 = (uint8_t) cmdlineGetArgInt(1);
 	uint8_t arg2 = (uint8_t) cmdlineGetArgInt(2);	
-	therm_load_devID(arg1);
+	therm_load_devID(arg1, arg2);
 }
-
 void Poke(void) {
 
 	uint16_t address = 0;
@@ -318,15 +313,8 @@ void Dump(void) {
 		}
 	}
 	rprintf("\r\n");
+}
 
-}
-//////////////////////////////////////////
-void ResetCounters(void){
-	TCNT1                = 0;
-	timer1_ovf_count     = 0;
-	rprintfProgStrM("1");
-	cmdlinePrintPromptEnd();
-}
 /////////////////////////////////////////////////////////////////////////////////////
 // STREAMING FUNCTION
 void StreamingControl(void){
@@ -351,8 +339,8 @@ void SetInterval(void){
 ////////////////////////////////////////////////////////////////
 // ONE WIRE DEVICES
 //
-void ChangeTmermPin(void)
-{
+void ChangeTmermPin(void){
+
 	therm_set_pin((uint8_t)cmdlineGetArgInt(1));
 }
 void StartTemperatureMeasurement(void){
@@ -377,7 +365,7 @@ void GetTemperature(void){
 	
 	for (i = 1; i <= MAX_NUMBER_OF_1WIRE_DEVICES; i++)
 	{
-		if (therm_load_devID(i) == 1)
+		if (therm_load_devID(DS.therm_pin, i) == 1)
 		{
 			loop_count++;
 			if(Flags.print_json)
@@ -407,12 +395,11 @@ void GetTemperature(void){
 	}
 	else
 	{
-		rprintfCRLF();
-		cmdlinePrintPromptEnd();
+		rprintfCRLF();		
 	}
+	cmdlinePrintPromptEnd();
 }
-void GetOneWireMeasurements(void)
-{
+void GetOneWireMeasurements(void){
 	test_ds2438();
 	cmdlinePrintPromptEnd();
 }
@@ -427,42 +414,60 @@ void OneWireReadRom(void){
 	cmdlinePrintPromptEnd();
 }
 void OneWireLoadRom(void){
-	uint8_t pin, i, done=0;
-
+	uint8_t pin, i;
 	for (pin = 0; pin < 3; pin++)
 	{		
 		therm_set_pin(pin);
 		if (Flags.print_json) 
 			rprintfProgStrM("[");		
 		done = 0;
-		for (i = 0; i < 20, done == 0; i++)
+		i = 0;
+		while(therm_load_devID(pin, i))
 		{
 			if (Flags.print_json)
 			{
-				rprintf("[%d,",i);
-					if (therm_load_devID(i))
-						therm_print_devID();
-					else
-						rprintfProgStrM("[]");
-
-					if (i<MAX_NUMBER_OF_1WIRE_DEVICES-1)
-						rprintf("],");
-					else
-						rprintfProgStrM("]");
+				rprintf("[%d,%d,",pin,i);
+				therm_print_devID();
+				rprintfProgStrM("]");
 			}
 			else
-				{	
-					if (therm_load_devID(i)){
-						rprintf("%d, %d, ",pin,i);
-						therm_print_devID();
-						rprintfCRLF();
-					}else{
-						done = 1;
-					}
-				}
-				if (Flags.print_json) 
-					rprintfProgStrM("]");				
+			{					
+				rprintf("%d, %d, ",pin,i);
+				therm_print_devID();
+				rprintfCRLF();
 			}
+			if (Flags.print_json) 
+				rprintfProgStrM("]");
+			i++;				
+		}
+		// for (i = 0; i < 20, done == 0; i++)
+		// {
+		// 	if (Flags.print_json)
+		// 	{
+		// 		rprintf("[%d,",i);
+		// 			if (therm_load_devID(i))
+		// 				therm_print_devID();
+		// 			else
+		// 				rprintfProgStrM("[]");
+
+		// 			if (i<MAX_NUMBER_OF_1WIRE_DEVICES-1)
+		// 				rprintf("],");
+		// 			else
+		// 				rprintfProgStrM("]");
+		// 	}
+		// 	else
+		// 		{	
+		// 			if (therm_load_devID(i)){
+		// 				rprintf("%d, %d, ",pin,i);
+		// 				therm_print_devID();
+		// 				rprintfCRLF();
+		// 			}else{
+		// 				done = 1;
+		// 			}
+		// 		}
+		// 		if (Flags.print_json) 
+		// 			rprintfProgStrM("]");				
+		// 	}
 	}
 	cmdlinePrintPromptEnd();
 }
@@ -514,26 +519,50 @@ void OneSearch(void){
 	}
 	cmdlinePrintPromptEnd();
 }
-void OneWireReset(void)
-{
-	rprintf("\ntherm_reset = %d\n",therm_reset());
-}
+void OneWirePrintTimingTabel(void){
 
-void OneWireDelay(void){
-	uint16_t  pin = (uint16_t) cmdlineGetArgInt(1);
-	uint16_t  val = (uint16_t) cmdlineGetArgInt(2);
-	PIN_LOW(THERM_PORT,pin);
-	therm_delay(val);
-	PIN_HIGH(THERM_PORT,pin);
-}
-
-void OneWirePrintTimingTabel(void)
-{
 	therm_print_timing();
 }
-
 void OneWireSetTimingTabel(void){
 	uint8_t  time      = (uint8_t)  cmdlineGetArgInt(1);
 	uint16_t interval  = (uint16_t) cmdlineGetArgInt(2);
 	therm_set_timing(time, interval);
+}
+
+////////////////////////////////////////////////////////////////////////////
+// The following functions are useful for calibrating the 1wire timing
+// with the aid of oscilloscope or logic analyzer.
+void OneWireDelay(void){
+	/*
+	val    measured
+	1      
+	10     
+	50     
+	100    
+	1000   
+
+	*/	
+	uint16_t  pin = (uint16_t) cmdlineGetArgInt(1);
+	uint16_t  val = (uint16_t) cmdlineGetArgInt(2);
+	
+	therm_set_pin(pin);
+	TRIG_LOW(TRIG_RESET_PIN);
+	therm_delay(val);
+	TRIG_LOW(TRIG_RESET_PIN);
+}
+void OneWireReset(void){
+	// issues a reset command
+	rprintf("\ntherm_reset = %d\n",therm_reset());
+}
+void OneWireWriteBit(void){	
+	uint8_t  bit = (uint8_t)cmdlineGetArgInt(1);
+	therm_write_bit(bit);
+}
+void OneWireReadBit(void){
+	uint8_t  bit = (uint8_t)cmdlineGetArgInt(1);
+	therm_read_bit();
+}
+void OneWireWriteByte(void){
+	uint8_t  byte = (uint8_t)cmdlineGetArgInt(1);
+	therm_write_byte(byte);
 }

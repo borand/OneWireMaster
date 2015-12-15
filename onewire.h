@@ -28,35 +28,44 @@
 
 //**************************************************************************
 // GENERIC MACROS
+#define TRUE 1 //if !=0
+#define FALSE 0
+
 #define PIN_LOW(reg,  bit)  reg &=~(1<<bit)
 #define PIN_HIGH(reg, bit)  reg |= (1<<bit)
 #define READ_PIN(reg, bit)  reg &= (1<<bit)
 #define TOGGLE(reg,bit)     reg ^= (_BV(bit))
-
-#define THERM_PORT PORTB
-#define THERM_DDR  DDRB
-#define THERM_PIN  PINB
-#define THERM_DQ   PINB0
-
-#define TRIG_PORT  PORTC
-#define TRIG_DDR   DDRC
-#define TRIG_RESET_PIN PINC0
-#define TRIG_READ_PIN  PINC1
-#define TRIG_BYTE_PIN  PINC2 
-
-#define DS2438     38
-#define DS18B20    40
-#define DS18S20    16
-
-/* Utils */
 #define THERM_INPUT_MODE(reg, bit)  reg &=~ (1<<bit)
 #define THERM_OUTPUT_MODE(reg, bit) reg |=  (1<<bit)
 #define THERM_LOW(reg, bit)  reg &=~(1<<bit)
 #define THERM_HIGH(reg, bit) reg |=(1<<bit)
 
-#define TRIG_LOW(bit)  TRIG_PORT&=~(1<<TRIG_PIN)
-#define TRIG_HIGH(bit) TRIG_PORT|=(1<<TRIG_PIN)
+//#define THERM_PORT PORTB
+//#define THERM_DDR  DDRB
+#define THERM_PIN  PINB
 
+//**************************************************************************
+// Macros for generating trigger pulses for oscilloscope or logic analyzer.
+//
+#define TRIG_PORT      PORTC
+#define TRIG_DDR       DDRC
+#define TRIG_RESET_PIN PINC0
+#define TRIG_READ_PIN  PINC1
+#define TRIG_BYTE_PIN  PINC2 
+#define TRIG_CMD_PIN   PINC3
+ 
+#define TRIG_LOW(bit)  TRIG_PORT &=~(1<<bit)
+#define TRIG_HIGH(bit) TRIG_PORT |= (1<<bit)
+
+//**************************************************************************
+// Common family codes for onewire devices
+#define DS2438     38
+#define DS18B20    40
+#define DS18S20    16
+
+
+//#define TRIG_LOW(bit)  TRIG_PORT&=~(1<<TRIG_PIN)
+//#define TRIG_HIGH(bit) TRIG_PORT|=(1<<TRIG_PIN)
 //#define THERM_DEBUG 1
 
 typedef struct
@@ -68,24 +77,21 @@ typedef struct
 	uint8_t  t_write_low;
 	uint8_t  t_write_slot;
 	uint8_t  t_read_samp;
-	uint8_t  t_read_slot;
-	uint8_t  dev[20][8];
-	uint8_t  rom[4][20][8];
-	
+	uint8_t  t_read_slot;	
+	uint8_t  rom[10][20][8];
 } EE_RAM_t;
 
 typedef struct
 {
-	uint8_t  num;	
-} EE_ROM_t;
-
-typedef struct
-{
 	uint8_t  scratchpad[9];
-	uint8_t  devID[8];	
+	uint8_t  dev_id[8];	
 	int8_t   temp_digit;
 	int16_t  temp_decimal;
+	uint8_t  therm_port;
+	uint8_t  therm_ddr;
 	uint8_t  therm_pin;
+	uint8_t  therm_pin_reg;
+	
 	uint16_t t_conv;
 	uint16_t t_reset_tx;
 	uint16_t t_reset_rx;
@@ -94,17 +100,17 @@ typedef struct
 	uint8_t  t_write_slot;
 	uint8_t  t_read_samp;
 	uint8_t  t_read_slot;
-	
-	uint8_t ROM_NO[8];
+		
 	uint8_t last_discrepancy;
 	uint8_t last_family_discrepancy;
 	uint8_t last_device_flag;
-	uint8_t crc8;
+	uint8_t crc8;	
 } DS_t;
 
-void    therm_init(void);
 void    therm_delay(uint16_t delay);
 uint8_t therm_reset();
+void    therm_init(void);
+void    therm_search_init(void);
 void    therm_write_bit(uint8_t bit);
 uint8_t therm_read_bit(void);
 uint8_t therm_read_byte(void);
@@ -119,7 +125,7 @@ void    therm_test_func(void);
 uint8_t therm_read_n_times(uint8_t n, uint8_t threshold);
 uint8_t therm_read_devID();
 void    therm_send_devID();
-uint8_t therm_load_devID(uint8_t devNum);
+uint8_t therm_load_devID(uint8_t therm_pin, uint8_t devNum);
 void    therm_set_devID(uint8_t *devID);
 void    therm_save_devID(uint8_t devNum);
 uint8_t therm_read_scratchpad(uint8_t numOfbytes);
@@ -130,6 +136,15 @@ uint8_t therm_read_temperature(uint8_t devNum, int16_t *temperature);
 uint8_t therm_crc_is_OK(uint8_t *scratchpad, uint8_t *crc, uint8_t numOfBytes);
 uint8_t therm_computeCRC8(uint8_t inData, uint8_t seed);
 
+
+////////////////////////////////////////////////////////////////
+// Search algorithm
+uint8_t therm_find_first_dev(void);
+uint8_t therm_find_next_dev(void);
+uint8_t therm_run_tree_search(void);
+uint8_t therm_verify_tree_search(void);
+uint8_t docrc8(unsigned char value);
+
 //////////////////////////////////////////////////////////////
 // DS2438
 //
@@ -138,29 +153,3 @@ void test_ds2438(void);
 void write_to_page(uint8_t page, uint8_t val);
 uint8_t get_ds2438_temperature(void);
 
-////////////////////////////////////////////////////////////////
-// Search algorithm
-#define TRUE 1 //if !=0
-#define FALSE 0
-//
-uint8_t OWReset(void);
-void OWWriteByte(uint8_t byte);
-void therm_search_init(void);
-uint8_t OWFirst(void);
-uint8_t OWNext(void);
-uint8_t OWSearch(void);
-uint8_t OWVerify(void);
-uint8_t docrc8(unsigned char value);
-
-//because 1wire uses bit times, setting the data line high or low with (_-) has no effect
-//we have to save the desired bus state, and then clock in the proper value during a clock(^)
-//static unsigned char DS1wireDataState=0;//data bits are low by default.
-//
-//// global search state,
-////these lovely globals are provided courtesy of MAXIM's code
-////need to be put in a struct....
-unsigned char ROM_NO[8];
-unsigned char LastDiscrepancy;
-unsigned char LastFamilyDiscrepancy;
-unsigned char LastDeviceFlag;
-unsigned char crc8;

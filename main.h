@@ -38,6 +38,7 @@ void test(void);
 void Poke(void);
 void Peek(void);
 void Dump(void);
+
 void OneWireDelay(void);
 void StartTemperatureMeasurement(void);
 void GetTemperature(void);
@@ -56,6 +57,9 @@ void OneWireSetTimingTabel(void);
 void PrintLabel(Label_t *eep_label);
 void PrintJson(void);
 
+void OneWireWriteBit(void);
+void OneWireWriteByte(void);
+void OneWireReadBit(void);
 
 void SetInterval(void);
 
