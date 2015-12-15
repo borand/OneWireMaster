@@ -342,7 +342,11 @@ void cmdlineProcessInputString(void)
 		// we're done
 		return;
 	}
-	rprintfProgStrM("\", \"data\": ");
+	if(Flags.print_json==1)
+		rprintfProgStrM("\", \"data\": ");
+	else
+		rprintfCRLF();
+	
 	// search command list for match with entered command
 	for(cmdIndex=0; cmdIndex<CmdlineNumCommands; cmdIndex++)
 	{
@@ -385,8 +389,9 @@ void cmdlinePrintPrompt(void)
 	
 	if(Flags.print_json)
 		rprintf("<%d>{\"cmd\":\"",cmd_prompt_index);
-	else
-		while(pgm_read_byte(ptr)) cmdlineOutputFunc( pgm_read_byte(ptr++) );
+	else{
+		while(pgm_read_byte(ptr)) cmdlineOutputFunc( pgm_read_byte(ptr++) );		
+	}
 }
 void cmdlineIncrementPrompt(void)
 {
@@ -412,8 +417,8 @@ void cmdlinePrintPromptEnd(void)
 void cmdlinePrintError(void)
 {
 	u08 * ptr;
-
-	rprintf("\"",cmd_prompt_index);
+	if(Flags.print_json)
+		rprintf("\"",cmd_prompt_index);
 	// print a notice header
 	// (u08*) cast used to avoid compiler warning
 	ptr = (u08*)CmdlineNotice;
@@ -431,7 +436,8 @@ void cmdlinePrintError(void)
 	ptr = (u08*)CmdlineCmdNotFound;
 	while(pgm_read_byte(ptr)) cmdlineOutputFunc( pgm_read_byte(ptr++) );
 
-	rprintf("\"");
+	if(Flags.print_json)
+		rprintf("\"");
 	cmdlinePrintPromptEnd();
 }
 

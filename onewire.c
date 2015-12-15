@@ -16,8 +16,9 @@ EE_RAM_t __attribute__((section (".eeprom"))) eeprom =
 		100,  // uint8_t  t_write_slot;
 		30,   // uint8_t  t_read_samp;
 		100,  // uint8_t  t_read_slot;
-		};
-DS1820_t DS;
+};
+
+DS_t DS;
 
 void therm_init(void)
 {
@@ -27,7 +28,10 @@ void therm_init(void)
 	for (i = 0; i < 8; i++)
 		DS.devID[i] = 0;
 	DS.therm_pin = PINB0;
-	THERM_OUTPUT_MODE(THERM_DDR, 1);
+	PIN_HIGH(TRIG_PORT,TRIG_RESET_PIN);
+	PIN_HIGH(TRIG_PORT,TRIG_READ_PIN);
+	PIN_HIGH(TRIG_PORT,TRIG_BYTE_PIN);
+	
 	DS.t_conv       = eeprom_read_word(&eeprom.t_conv);
 	DS.t_reset_tx   = eeprom_read_word(&eeprom.t_reset_tx);
 	DS.t_reset_rx   = eeprom_read_word(&eeprom.t_reset_rx);
@@ -51,6 +55,7 @@ void therm_delay(uint16_t delay)
 uint8_t therm_reset()
 {
 	uint8_t i;
+	PIN_LOW(TRIG_PORT,TRIG_RESET_PIN);
 	THERM_OUTPUT_MODE(THERM_DDR, 1);
 	THERM_LOW(THERM_PORT, DS.therm_pin);
 	THERM_OUTPUT_MODE(THERM_DDR, DS.therm_pin);
@@ -58,12 +63,14 @@ uint8_t therm_reset()
 	THERM_INPUT_MODE(THERM_DDR, DS.therm_pin);
 	//while (bit_is_clear(THERM_PIN, DS.therm_pin));
 	therm_delay(DS.t_reset_delay);
-	//PIN_LOW(THERM_PORT,1);
+	PIN_HIGH(TRIG_PORT,TRIG_RESET_PIN);
 	//i = READ_PIN(THERM_PIN, DS.therm_pin);
 	i = therm_read_n_times(10,5);
+	PIN_LOW(TRIG_PORT,TRIG_RESET_PIN);
 	//PIN_HIGH(THERM_PORT,1);
 	therm_delay(DS.t_reset_rx); //480 us
 	//Return the value read from the presence pulse (0=OK, 1=WRONG)
+	PIN_HIGH(TRIG_PORT,TRIG_RESET_PIN);
 	return i;
 }
 
@@ -95,19 +102,26 @@ uint8_t therm_read_n_times(uint8_t n, uint8_t threshold)
 uint8_t therm_read_bit(void)
 {	
 	uint8_t bit = 0;
+	
+	PIN_LOW(TRIG_PORT,TRIG_READ_PIN);
+	
 	//Pull line low for 1uS
 	THERM_LOW(THERM_PORT, DS.therm_pin);
 	THERM_OUTPUT_MODE(THERM_DDR, DS.therm_pin);
 	//Release line and wait for 14uS
 	THERM_INPUT_MODE(THERM_DDR, DS.therm_pin);
 	therm_delay(DS.t_read_samp);
-	PIN_LOW(THERM_PORT,1);
+	
+	PIN_HIGH(TRIG_PORT,TRIG_READ_PIN);
 	if (THERM_PIN & (1 << DS.therm_pin))
 		bit = 1;
-	//bit = therm_read_n_times(1,0);
-	PIN_HIGH(THERM_PORT,1);
+	PIN_LOW(TRIG_PORT,TRIG_READ_PIN);
+	
+	//bit = therm_read_n_times(1,0);	
 	//Wait for 45uS to end and return read value
 	therm_delay(DS.t_read_slot);
+	PIN_HIGH(TRIG_PORT,TRIG_READ_PIN);
+	
 	return bit;
 }
 
@@ -115,12 +129,14 @@ uint8_t therm_read_byte(void)
 {
 	uint8_t i = 8, n = 0;
 	cli();
+	PIN_LOW(TRIG_PORT,TRIG_BYTE_PIN);
 	while (i--)
 	{
 		//Shift one position right and store read value
 		n >>= 1;
 		n |= (therm_read_bit() << 7);
 	}
+	PIN_HIGH(TRIG_PORT,TRIG_BYTE_PIN);
 	sei();
 	return n;
 }
@@ -216,40 +232,41 @@ void therm_set_timing(uint8_t time, uint16_t interval)
 }
 
 /////////////////////////////////////////////////////////////////////////
-uint8_t therm_load_devID(uint8_t devNum)
-{
+uint8_t therm_load_devID(uint8_t devNum){
 	uint8_t no_error = 0, crc[1], i = 0;
 	uint16_t address_sum = 0;
 	for (i = 0; i < 8; i++)
 	{
-		DS.devID[i] = eeprom_read_byte(&eeprom.dev[devNum][i]);
+		//DS.devID[i] = eeprom_read_byte(&eeprom.dev[devNum][i]);
+		DS.devID[i] = eeprom_read_byte(&eeprom.rom[DS.therm_pin][devNum][i]);
 		address_sum += DS.devID[i];
 	}
 	if (address_sum > 0)
 	{
 		no_error = therm_crc_is_OK(DS.devID, crc, 7);		
 	}
+	//rprintf("therm_load_devID() no_error = %d\n",no_error);	
 	return no_error;
 }
 
-void therm_save_devID(uint8_t devNum)
-{
+void therm_save_devID(uint8_t devNum){
 	uint8_t i;
 	cli();
-	for (i = 0; i < 8; i++)
-		eeprom_write_byte(&eeprom.dev[devNum][i], DS.devID[i]);
+	for (i = 0; i < 8; i++){
+		//eeprom_write_byte(&eeprom.dev[devNum][i], DS.devID[i]);
+		eeprom_write_byte(&eeprom.rom[DS.therm_pin][devNum][i], DS.devID[i]);
+	}
 	sei();
 }
 
-void therm_set_devID(uint8_t *devID)
-{
+void therm_set_devID(uint8_t *devID){
 	uint8_t i;
-	for (i = 0; i < 9; i++)
-		DS.devID[i] = devID[i];
+	for (i = 0; i < 9; i++){
+		DS.devID[i] = devID[i];		
+	}
 }
 
-void therm_send_devID()
-{
+void therm_send_devID(){
 	uint8_t i = 0;
 	if (DS.devID[0] == 0)
 	{
@@ -263,8 +280,7 @@ void therm_send_devID()
 	}
 }
 
-uint8_t therm_read_devID()
-{
+uint8_t therm_read_devID(){
 	uint8_t no_error = 0, i = 0, crc[1];
 	crc[0] = 0;
 
@@ -281,14 +297,12 @@ uint8_t therm_read_devID()
 	return no_error;
 }
 
-void therm_start_measurement()
-{
+void therm_start_measurement(){
 	therm_write_byte(THERM_CMD_SKIPROM);
 	therm_write_byte(THERM_CMD_CONVERTTEMP);
 }
 
-uint8_t therm_read_scratchpad(uint8_t numOfbytes)
-{
+uint8_t therm_read_scratchpad(uint8_t numOfbytes){
 	uint8_t i = 0, crc[1], no_error;
 	therm_send_devID();
 	therm_write_byte(THERM_CMD_RSCRATCHPAD);
@@ -330,8 +344,7 @@ uint8_t therm_read_temperature(uint8_t devNum, int16_t *temperature)
 	return no_error;
 }
 
-uint8_t therm_read_result(int16_t *temperature)
-{
+uint8_t therm_read_result(int16_t *temperature){
 	uint8_t no_error = 1;
 	temperature[0] = 999;
 	temperature[1] = 9999;
@@ -436,11 +449,12 @@ uint8_t therm_computeCRC8(uint8_t inData, uint8_t seed)
 
 uint8_t therm_crc_is_OK(uint8_t *scratchpad, uint8_t *crc, uint8_t numOfBytes)
 {
-	uint8_t i = 0;
+	uint8_t i = 0, id_sum=0;
 	crc[0] = 0;
 	for (i = 0; i < numOfBytes; i++)
-		crc[0] = therm_computeCRC8(scratchpad[i], crc[0]);
-	return (scratchpad[numOfBytes] == crc[0]);
+		crc[0]  = therm_computeCRC8(scratchpad[i], crc[0]);
+		id_sum += scratchpad[i];	
+	return ((scratchpad[numOfBytes] == crc[0]) && (id_sum > 0));
 }
 
 //////////////////////////////////////////////////////////////

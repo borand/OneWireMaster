@@ -61,13 +61,13 @@ int main(void)
 	///////////////////////////////////////////////////////
 	// VARIABLE INIT
 	Flags.print_temp     = 0;
-	Flags.print_json     = 1;
+	Flags.print_json     = 0;
 	Flags.stream_timer_0 = 0;
 
 	///////////////////////////////////////////////////////
 	// TIMER0
 	
-	timer0_ovf_count = 100;
+	timer0_ovf_count = 1000;
 	timer0Init();
 	timerAttach(0,Timer0Func);
 	timer0SetPrescaler(TIMER_CLK_DIV1024);
@@ -75,6 +75,8 @@ int main(void)
 	///////////////////////////////////////////////////////
 	DDRB  = _BV(PB0) | _BV(PB1) | _BV(PB5);
 	PORTD = _BV(PD2) | _BV(PD3) | _BV(PD4) | _BV(PD5) | _BV(PD6) | _BV(PD7);
+	DDRC  = 0xff;
+	PORTC = 0xff;
 
 	//cbi(DDRD,PB2);
 	cbi(PORTB,PB5);
@@ -269,6 +271,7 @@ void test(void)
 {
 	uint8_t arg1 = (uint8_t) cmdlineGetArgInt(1);
 	uint8_t arg2 = (uint8_t) cmdlineGetArgInt(2);	
+	therm_load_devID(arg1);
 }
 
 void Poke(void) {
@@ -318,8 +321,7 @@ void Dump(void) {
 
 }
 //////////////////////////////////////////
-void ResetCounters(void)
-{
+void ResetCounters(void){
 	TCNT1                = 0;
 	timer1_ovf_count     = 0;
 	rprintfProgStrM("1");
@@ -327,14 +329,12 @@ void ResetCounters(void)
 }
 /////////////////////////////////////////////////////////////////////////////////////
 // STREAMING FUNCTION
-void StreamingControl(void)
-{
+void StreamingControl(void){
 	Flags.stream_timer_0 = (uint8_t) cmdlineGetArgInt(1);
 	rprintf("%d",Flags.stream_timer_0);
 	cmdlinePrintPromptEnd();
 }
-void SetInterval(void)
-{
+void SetInterval(void){
 	timer0_ovf_count = (uint16_t) cmdlineGetArgInt(1);
 	if (timer0_ovf_count == 0)
 	{
@@ -355,16 +355,13 @@ void ChangeTmermPin(void)
 {
 	therm_set_pin((uint8_t)cmdlineGetArgInt(1));
 }
-void StartTemperatureMeasurement(void)
-{
+void StartTemperatureMeasurement(void){
 	therm_reset();
 	therm_start_measurement();
 	rprintfProgStrM("1");
 	cmdlinePrintPromptEnd();
 }
-
-void GetTemperature(void)
-{
+void GetTemperature(void){
 	int16_t t[2];
 	uint8_t i, device_count = 0, loop_count=0;
 	int8_t devNum = 0;//(int8_t) cmdlineGetArgInt(1);
@@ -419,8 +416,7 @@ void GetOneWireMeasurements(void)
 	test_ds2438();
 	cmdlinePrintPromptEnd();
 }
-void OneWireReadRom(void)
-{
+void OneWireReadRom(void){
 	if(therm_read_devID())
 		therm_print_devID();
 	else
@@ -430,30 +426,47 @@ void OneWireReadRom(void)
 	}
 	cmdlinePrintPromptEnd();
 }
-void OneWireLoadRom(void)
-{
-	uint8_t i;
+void OneWireLoadRom(void){
+	uint8_t pin, i, done=0;
 
-	rprintfProgStrM("[");
-	for (i = 1; i < 20; i++)
+	for (pin = 0; pin < 3; pin++)
 	{
-		rprintf("[%d,",i);
-		if (therm_load_devID(i))
-			therm_print_devID();
-		else
-			rprintfProgStrM("[]");
+		therm_set_pin(pin);
+		if (Flags.print_json) 
+			rprintfProgStrM("[");		
+		done = 0;
+		for (i = 1; i < 20, done == 0; i++)
+		{
+			if (Flags.print_json)
+			{
+				rprintf("[%d,",i);
+					if (therm_load_devID(i))
+						therm_print_devID();
+					else
+						rprintfProgStrM("[]");
 
-		if (i<MAX_NUMBER_OF_1WIRE_DEVICES-1)
-			rprintf("],");
-		else
-			rprintfProgStrM("]");
+					if (i<MAX_NUMBER_OF_1WIRE_DEVICES-1)
+						rprintf("],");
+					else
+						rprintfProgStrM("]");
+			}
+			else
+				{	
+					if (therm_load_devID(i)){
+						rprintf("%d, %d, ",pin,i);
+						therm_print_devID();
+						rprintfCRLF();
+					}else{
+						done = 1;
+					}
+				}
+				if (Flags.print_json) 
+					rprintfProgStrM("]");				
+			}
 	}
-	rprintfProgStrM("]");
 	cmdlinePrintPromptEnd();
-
 }
-void SaveThermometerIdToRom(void)
-{
+void SaveThermometerIdToRom(void){
 	uint8_t  devNum = (uint8_t) cmdlineGetArgInt(1);
 	uint8_t  devID[8], i;
 	for(i=0;i<8;i++)
@@ -464,16 +477,14 @@ void SaveThermometerIdToRom(void)
 	therm_save_devID(devNum);
 	OneWireLoadRom();
 }
-void OneWireReadPage(void)
-{
+void OneWireReadPage(void){
 	uint8_t  page = (uint8_t) cmdlineGetArgInt(1);
 
 	recal_memory_page(page);
 	therm_print_scratchpad();
 	cmdlinePrintPromptEnd();
 }
-void OneWireWritePage(void)
-{
+void OneWireWritePage(void){
 	uint8_t  page = (uint8_t) cmdlineGetArgInt(1);
 	uint8_t  val  = (uint8_t) cmdlineGetArgInt(2);
 	
@@ -483,30 +494,31 @@ void OneWireWritePage(void)
 	therm_print_scratchpad();
 	cmdlinePrintPromptEnd();
 }
-void OneWirerintScratchPad(void)
-{
+void OneWirerintScratchPad(void){
 	therm_print_scratchpad();
 	cmdlinePrintPromptEnd();
 }
-void OneSearch(void)
-{	
-	uint8_t devNum=0;
+void OneSearch(void){	
+	uint8_t devNum=0, pin;
 	therm_search_init();
-	rprintf("\n");
-	while(OWNext())
+	for (pin = 0; pin < 3; pin++)
 	{
-		devNum++;
-		therm_save_devID(devNum);		
-		therm_test_func();
+		therm_set_pin(pin);		
+		while(OWNext())
+		{
+			devNum++;
+			therm_save_devID(devNum);		
+			therm_test_func();
+		}
 	}
+	cmdlinePrintPromptEnd();
 }
 void OneWireReset(void)
 {
 	rprintf("\ntherm_reset = %d\n",therm_reset());
 }
 
-void OneWireDelay(void)
-{
+void OneWireDelay(void){
 	uint16_t  pin = (uint16_t) cmdlineGetArgInt(1);
 	uint16_t  val = (uint16_t) cmdlineGetArgInt(2);
 	PIN_LOW(THERM_PORT,pin);
@@ -519,9 +531,8 @@ void OneWirePrintTimingTabel(void)
 	therm_print_timing();
 }
 
-void OneWireSetTimingTabel(void)
-{
-	uint8_t  time = (uint8_t) cmdlineGetArgInt(1);
-	uint16_t  interval  = (uint16_t) cmdlineGetArgInt(2);
+void OneWireSetTimingTabel(void){
+	uint8_t  time      = (uint8_t)  cmdlineGetArgInt(1);
+	uint16_t interval  = (uint16_t) cmdlineGetArgInt(2);
 	therm_set_timing(time, interval);
 }

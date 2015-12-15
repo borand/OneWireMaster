@@ -28,18 +28,21 @@
 
 //**************************************************************************
 // GENERIC MACROS
-#define PIN_LOW(reg, bit)  reg &=~(1<<bit)
-#define PIN_HIGH(reg, bit) reg |= (1<<bit)
-#define READ_PIN(reg,bit)  reg &= (1<<bit)
-#define TOGGLE(reg,bit)    reg ^= (_BV(bit))
+#define PIN_LOW(reg,  bit)  reg &=~(1<<bit)
+#define PIN_HIGH(reg, bit)  reg |= (1<<bit)
+#define READ_PIN(reg, bit)  reg &= (1<<bit)
+#define TOGGLE(reg,bit)     reg ^= (_BV(bit))
 
 #define THERM_PORT PORTB
 #define THERM_DDR  DDRB
 #define THERM_PIN  PINB
 #define THERM_DQ   PINB0
-#define TRIG_PORT  PORTB
-#define TRIG_DDR   DDRB
-#define TRIG_PIN   PINB5
+
+#define TRIG_PORT  PORTC
+#define TRIG_DDR   DDRC
+#define TRIG_RESET_PIN PINC0
+#define TRIG_READ_PIN  PINC1
+#define TRIG_BYTE_PIN  PINC2 
 
 #define DS2438     38
 #define DS18B20    40
@@ -67,18 +70,19 @@ typedef struct
 	uint8_t  t_read_samp;
 	uint8_t  t_read_slot;
 	uint8_t  dev[20][8];
+	uint8_t  rom[4][20][8];
+	
 } EE_RAM_t;
 
 typedef struct
 {
-	uint8_t  num;
-	uint8_t  rom[129][9];
+	uint8_t  num;	
 } EE_ROM_t;
 
 typedef struct
 {
 	uint8_t  scratchpad[9];
-	uint8_t  devID[8];
+	uint8_t  devID[8];	
 	int8_t   temp_digit;
 	int16_t  temp_decimal;
 	uint8_t  therm_pin;
@@ -96,7 +100,7 @@ typedef struct
 	uint8_t last_family_discrepancy;
 	uint8_t last_device_flag;
 	uint8_t crc8;
-} DS1820_t;
+} DS_t;
 
 void    therm_init(void);
 void    therm_delay(uint16_t delay);
