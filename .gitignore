@@ -1,0 +1,12 @@
+*.o
+*.d
+*.componentinfo.xml
+*.atsln
+makedep.mk
+OneWireMaster.srec
+OneWireMaster.map
+OneWireMaster.lss
+OneWireMaster.cproj
+OneWireMaster.elf
+.vs/*
+Release/Makefile

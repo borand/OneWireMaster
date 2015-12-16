@@ -267,7 +267,8 @@ void PrintLabel(Label_t *eep_label){
 void test(void){
 	uint8_t arg1 = (uint8_t) cmdlineGetArgInt(1);
 	uint8_t arg2 = (uint8_t) cmdlineGetArgInt(2);	
-	therm_load_devID(arg1, arg2);
+	//therm_load_devID(arg1, arg2);
+	therm_test();
 }
 void Poke(void) {
 
@@ -351,7 +352,7 @@ void StartTemperatureMeasurement(void){
 }
 void GetTemperature(void){
 	int16_t t[2];
-	uint8_t i, device_count = 0, loop_count=0;
+	uint8_t i, device_count = 0, loop_count=0, therm_pin=0;
 	int8_t devNum = 0;//(int8_t) cmdlineGetArgInt(1);
 	
 	if(Flags.print_json)
@@ -365,7 +366,7 @@ void GetTemperature(void){
 	
 	for (i = 1; i <= MAX_NUMBER_OF_1WIRE_DEVICES; i++)
 	{
-		if (therm_load_devID(DS.therm_pin, i) == 1)
+		if (therm_load_devID(therm_pin, i) == 1)
 		{
 			loop_count++;
 			if(Flags.print_json)
@@ -419,8 +420,7 @@ void OneWireLoadRom(void){
 	{		
 		therm_set_pin(pin);
 		if (Flags.print_json) 
-			rprintfProgStrM("[");		
-		done = 0;
+			rprintfProgStrM("[");
 		i = 0;
 		while(therm_load_devID(pin, i))
 		{
@@ -510,7 +510,7 @@ void OneSearch(void){
 	{
 		therm_set_pin(pin);
 		devNum=0;
-		while(OWNext())
+		while(therm_find_next_dev())
 		{			
 			therm_save_devID(devNum);		
 			therm_test_func();
@@ -535,11 +535,14 @@ void OneWireSetTimingTabel(void){
 void OneWireDelay(void){
 	/*
 	val    measured
-	1      
-	10     
-	50     
-	100    
-	1000   
+	1      1.28
+	10     4.64
+	20     8.40
+	50     19.7
+	100    38.4
+	200    76.4
+	500    189
+	1000   376
 
 	*/	
 	uint16_t  pin = (uint16_t) cmdlineGetArgInt(1);
@@ -548,21 +551,26 @@ void OneWireDelay(void){
 	therm_set_pin(pin);
 	TRIG_LOW(TRIG_RESET_PIN);
 	therm_delay(val);
-	TRIG_LOW(TRIG_RESET_PIN);
+	TRIG_HIGH(TRIG_RESET_PIN);
 }
 void OneWireReset(void){
 	// issues a reset command
-	rprintf("\ntherm_reset = %d\n",therm_reset());
+	rprintf("therm_reset() = %d\n",therm_reset());
 }
 void OneWireWriteBit(void){	
 	uint8_t  bit = (uint8_t)cmdlineGetArgInt(1);
+	OneWireReset();
 	therm_write_bit(bit);
 }
 void OneWireReadBit(void){
 	uint8_t  bit = (uint8_t)cmdlineGetArgInt(1);
+	rprintf("OneWireReadBit = %d\n",bit);
+	OneWireReset();
 	therm_read_bit();
 }
 void OneWireWriteByte(void){
 	uint8_t  byte = (uint8_t)cmdlineGetArgInt(1);
+	rprintf("OneWireWriteByte = %d\n",byte);
+	OneWireReset();
 	therm_write_byte(byte);
 }

@@ -10,11 +10,11 @@
 EE_RAM_t __attribute__((section (".eeprom"))) eeprom =
 {
 		150,  // t_conv ms
-		1100, // uint8_t  t_reset_tx;
-		1100, // uint8_t  t_reset_rx;
-		35,   // t_reset_delay
-		30,   // uint8_t  t_write_low;
-		100,  // uint8_t  t_write_slot;
+		1280, // uint8_t  t_reset_tx; ~ 480us
+		1063, // uint8_t  t_reset_rx; ~ 400us
+		200,  // t_reset_delay        ~ 75us
+		80,   // uint8_t  t_write_low ~ 30us
+		180,  // uint8_t  t_write_slot~ 70us
 		30,   // uint8_t  t_read_samp;
 		100,  // uint8_t  t_read_slot;
 };
@@ -33,7 +33,10 @@ void therm_init(void)
 	
 	TRIG_HIGH(TRIG_RESET_PIN);
 	TRIG_HIGH(TRIG_READ_PIN);
-	TRIG_HIGH(TRIG_BYTE_PIN);
+	TRIG_HIGH(TRIG_READ_BYTE);
+	TRIG_HIGH(TRIG_WRITE_BYTE);
+	TRIG_HIGH(TRIG_CMD);
+	
 	therm_set_pin(0);
 	
 	DS.t_conv       = eeprom_read_word(&eeprom.t_conv);
@@ -64,11 +67,12 @@ void therm_set_pin(uint8_t newPin)
 	
 	*/
 	if(newPin < 6)
-	{
+	{		
 		DS.therm_port    = PORTD;
 		DS.therm_ddr     = DDRD;
 		DS.therm_pin_reg = PIND;
 		DS.therm_pin     = newPin + 2;
+		rprintf("Setting pin to PORTD %d\n",DS.therm_pin);
 	}
 	else
 	{
@@ -76,7 +80,11 @@ void therm_set_pin(uint8_t newPin)
 		DS.therm_ddr     = DDRB;
 		DS.therm_pin_reg = PINB;
 		DS.therm_pin     = newPin - 6;
+		rprintf("Setting pin to PORTB %d",DS.therm_pin);
 	}
+	rprintf("DS.therm_ddr  = %d\n",DS.therm_ddr);
+	rprintf("DS.therm_port = %d\n",DS.therm_port);
+	rprintf("DS.therm_pin  = %d\n",DS.therm_pin);
 }
 void therm_delay(uint16_t delay)
 {
@@ -133,6 +141,14 @@ void therm_set_timing(uint8_t time, uint16_t interval)
 	sei();
 }
 
+void therm_test(void)
+{
+	rprintf("DS.therm_ddr  = %d\n",DS.therm_ddr);
+	rprintf("DDRD          = %d\n",DDRD);
+	rprintf("DS.therm_port = %d\n",DS.therm_port);
+	rprintf("PORTD         = %d\n",PORTD);
+	rprintf("DS.therm_pin  = %d\n",DS.therm_pin);
+}
 /////////////////////////////////////////////////////////////////////////////
 // Low level reset, bit read/write  functions
 uint8_t therm_reset(){
@@ -147,33 +163,36 @@ uint8_t therm_reset(){
 	this rising edge, it waits 15µs to 60µs and then transmits a presence pulse by pulling the 1-Wire bus low
 	for 60µs to 240µs.
 	
-	Reset pulse
+	Figure 13 Reset pulse
 	Vpulup _______                        ____	                     ___________________
 	              \                      /    \                     /
 	               \                    /      \                   /
 	                \__________________/        \_________________/
 
-	              |<------ 480us ----->|      |<---- 60-240us --->|
+	                                               |x| <- master samples
+	              |<------ 480us ----->|<-15us->|<---- 60-240us --->|
 	                                   |<------------ 480us ----------->|
+
 	*/
-	uint8_t i;
-	PIN_LOW(TRIG_PORT,TRIG_RESET_PIN);
-	THERM_OUTPUT_MODE(DS.therm_ddr, 1);
-	THERM_LOW(DS.therm_port, DS.therm_pin);
-	THERM_OUTPUT_MODE(DS.therm_ddr, DS.therm_pin);
+	uint8_t presence_pulse;
+	TRIG_LOW(TRIG_RESET_PIN);
+
+	// During the initialization sequence the bus master transmits (TX) the reset pulse by pulling the 1-Wire bus
+	// low for a minimum of 480µs. The bus master then releases the bus and goes into receive mode (RX).
+	//THERM_OUTPUT_MODE(DS.therm_ddr, DS.therm_pin);	
+	THERM_OUTPUT_MODE(DDRD, DS.therm_pin);	
+	THERM_LOW(PORTD, DS.therm_pin);
 	therm_delay(DS.t_reset_tx); //480 us
-	THERM_INPUT_MODE(DS.therm_ddr, DS.therm_pin);
-	//while (bit_is_clear(THERM_PIN, DS.therm_pin));
+
+	THERM_INPUT_MODE(DDRD, DS.therm_pin);	
 	therm_delay(DS.t_reset_delay);
-	PIN_HIGH(TRIG_PORT,TRIG_RESET_PIN);
-	//i = READ_PIN(THERM_PIN, DS.therm_pin);
-	i = therm_read_n_times(10,5);
-	PIN_LOW(TRIG_PORT,TRIG_RESET_PIN);
-	//PIN_HIGH(DS.therm_port,1);
-	therm_delay(DS.t_reset_rx); //480 us
-	//Return the value read from the presence pulse (0=OK, 1=WRONG)
-	PIN_HIGH(TRIG_PORT,TRIG_RESET_PIN);
-	return i;
+	
+	TRIG_HIGH(TRIG_RESET_PIN);	
+	presence_pulse = therm_read_n_times(10,5);
+	TRIG_LOW(TRIG_RESET_PIN);	
+	therm_delay(DS.t_reset_rx); //480 - 75 us	
+	TRIG_HIGH(TRIG_RESET_PIN);	
+	return (presence_pulse == 0);
 }
 
 void therm_write_bit(uint8_t bit)
@@ -204,18 +223,20 @@ void therm_write_bit(uint8_t bit)
 	                | min    typ      max |            | min    typ      max |
 	                |---------------------|            |---------------------|
 	          | 15us|<- 15us ->|<- 30us ->|      | 15us|<- 15us ->|<- 30us ->| 
+	          |<-DS.t_write_low->|               |<-DS.t_write_low->|
 
-	*/
-	//Pull line low for 1uS
-	THERM_LOW(DS.therm_port, DS.therm_pin);
-	THERM_OUTPUT_MODE(DS.therm_ddr, DS.therm_pin);
+	*/	
+	TRIG_LOW(TRIG_WRITE_PIN);
+	THERM_LOW(PORTD, DS.therm_pin);
+	THERM_OUTPUT_MODE(DDRD, DS.therm_pin);	
 	therm_delay(DS.t_write_low);
-	//If we want to write 1, release the line (if not will keep low)
+	//If we want to write 1, release the line (if not will keep low)	
 	if (bit)
-		THERM_INPUT_MODE(DS.therm_ddr, DS.therm_pin);
+		THERM_INPUT_MODE(DDRD, DS.therm_pin);	
 	//Wait for 60uS and release the line
 	therm_delay(DS.t_write_slot);
-	THERM_INPUT_MODE(DS.therm_ddr, DS.therm_pin);
+	TRIG_HIGH(TRIG_WRITE_PIN);
+	THERM_INPUT_MODE(DDRD, DS.therm_pin);
 }
 
 uint8_t therm_read_bit(void)
@@ -267,16 +288,17 @@ uint8_t therm_read_bit(void)
 	TRIG_LOW(TRIG_READ_PIN);
 	
 	//Pull line low for 1uS
-	THERM_LOW(DS.therm_port, DS.therm_pin);
-	THERM_OUTPUT_MODE(DS.therm_ddr, DS.therm_pin);
-	
+	THERM_LOW(PORTD, DS.therm_pin);
+	THERM_OUTPUT_MODE(DDRD, DS.therm_pin);
+	therm_delay(1);
 	//Release line and wait for 14uS
-	THERM_INPUT_MODE(DS.therm_ddr, DS.therm_pin);
+	THERM_INPUT_MODE(DDRD, DS.therm_pin);
 	therm_delay(DS.t_read_samp);
 	
 	TRIG_HIGH(TRIG_READ_PIN);
-	if (DS.therm_pin_reg & (1 << DS.therm_pin))
-		bit = 1;
+	//if (PIND & (1 << DS.therm_pin))
+	//	bit = 1;
+	bit = therm_read_n_times(4,2);
 	TRIG_LOW(TRIG_READ_PIN);
 	
 	//bit = therm_read_n_times(1,0);	
@@ -290,11 +312,11 @@ uint8_t therm_read_bit(void)
 uint8_t therm_read_n_times(uint8_t n, uint8_t threshold)
 {// Take multiple read samples to improve reliability. 
 
-	uint8_t val;
+	uint8_t val=0;
 	while(n--)	
-		val += READ_PIN(DS.therm_port, DS.therm_pin);
+		val += READ_PIN(PIND, DS.therm_pin);
 	
-	return (val >= threshold);
+	return (val > threshold);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -303,14 +325,14 @@ uint8_t therm_read_byte(void)
 {// Perform single byte read operation 
 	uint8_t i = 8, n = 0;
 	cli();
-	TRIG_LOW(TRIG_BYTE_PIN);
+	TRIG_LOW(TRIG_READ_BYTE);
 	while (i--)
 	{
 		//Shift one position right and store read value
 		n >>= 1;
 		n |= (therm_read_bit() << 7);
 	}
-	TRIG_HIGH(TRIG_BYTE_PIN);
+	TRIG_HIGH(TRIG_READ_BYTE);
 	sei();
 	return n;
 }
@@ -319,14 +341,14 @@ void therm_write_byte(uint8_t byte)
 {// Perform single byte write operation 
 	uint8_t i = 8;
 	cli();
-	TRIG_LOW(TRIG_PORT,TRIG_BYTE_PIN);
+	TRIG_LOW(TRIG_WRITE_BYTE);
 	while (i--)
 	{
 		//Write actual bit and shift one position right to make the next bit ready
 		therm_write_bit(byte & 1);
 		byte >>= 1;
 	}
-	TRIG_HIGH(TRIG_PORT,TRIG_BYTE_PIN);
+	TRIG_HIGH(TRIG_WRITE_BYTE);
 	sei();
 }
 

@@ -28,8 +28,8 @@
 
 //**************************************************************************
 // GENERIC MACROS
-#define TRUE 1 //if !=0
-#define FALSE 0
+//#define TRUE 1 //if !=0
+//#define FALSE 0
 
 #define PIN_LOW(reg,  bit)  reg &=~(1<<bit)
 #define PIN_HIGH(reg, bit)  reg |= (1<<bit)
@@ -47,12 +47,14 @@
 //**************************************************************************
 // Macros for generating trigger pulses for oscilloscope or logic analyzer.
 //
-#define TRIG_PORT      PORTC
-#define TRIG_DDR       DDRC
-#define TRIG_RESET_PIN PINC0
-#define TRIG_READ_PIN  PINC1
-#define TRIG_BYTE_PIN  PINC2 
-#define TRIG_CMD_PIN   PINC3
+#define TRIG_PORT       PORTC
+#define TRIG_DDR        DDRC
+#define TRIG_RESET_PIN  PINC0
+#define TRIG_READ_PIN   PINC1
+#define TRIG_READ_BYTE  PINC2 
+#define TRIG_WRITE_PIN  PINC3
+#define TRIG_WRITE_BYTE PINC4
+#define TRIG_CMD        PINC5
  
 #define TRIG_LOW(bit)  TRIG_PORT &=~(1<<bit)
 #define TRIG_HIGH(bit) TRIG_PORT |= (1<<bit)
@@ -63,6 +65,17 @@
 #define DS18B20    40
 #define DS18S20    16
 
+// Address     Name  Bit 7  Bit 6  Bit 5  Bit 4  Bit 3  Bit 2  Bit 1  Bit 0    Page
+//----------------------------------------------------------------------------------
+// 0x0B (0x2B) PORTD PORTD7 PORTD6 PORTD5 PORTD4 PORTD3 PORTD2 PORTD1 PORTD0   92
+// 0x0A (0x2A) DDRD  DDD7   DDD6   DDD5   DDD4   DDD3   DDD2   DDD1   DDD0     92
+// 0x09 (0x29) PIND  PIND7  PIND6  PIND5  PIND4  PIND3  PIND2  PIND1  PIND0    92
+// 0x08 (0x28) PORTC -----  PORTC6 PORTC5 PORTC4 PORTC3 PORTC2 PORTC1 PORTC0   91
+// 0x07 (0x27) DDRC  -----  DDC6   DDC5   DDC4   DDC3   DDC2   DDC1   DDC0     91
+// 0x06 (0x26) PINC  -----  PINC6  PINC5  PINC4  PINC3  PINC2  PINC1  PINC0    92
+// 0x05 (0x25) PORTB PORTB7 PORTB6 PORTB5 PORTB4 PORTB3 PORTB2 PORTB1 PORTB0   91
+// 0x04 (0x24) DDRB  DDB7   DDB6   DDB5   DDB4   DDB3   DDB2   DDB1   DDB0     91
+// 0x03 (0x23) PINB  PINB7  PINB6  PINB5  PINB4  PINB3  PINB2  PINB1  PINB0    91
 
 //#define TRIG_LOW(bit)  TRIG_PORT&=~(1<<TRIG_PIN)
 //#define TRIG_HIGH(bit) TRIG_PORT|=(1<<TRIG_PIN)
@@ -78,7 +91,7 @@ typedef struct
 	uint8_t  t_write_slot;
 	uint8_t  t_read_samp;
 	uint8_t  t_read_slot;	
-	uint8_t  rom[10][20][8];
+	uint8_t  rom[10][10][8];
 } EE_RAM_t;
 
 typedef struct
@@ -109,6 +122,7 @@ typedef struct
 
 void    therm_delay(uint16_t delay);
 uint8_t therm_reset();
+void    therm_test(void);
 void    therm_init(void);
 void    therm_search_init(void);
 void    therm_write_bit(uint8_t bit);
