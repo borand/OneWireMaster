@@ -268,9 +268,9 @@ void test(void){
 	uint8_t arg1 = (uint8_t) cmdlineGetArgInt(1);
 	uint8_t arg2 = (uint8_t) cmdlineGetArgInt(2);	
 	//therm_load_devID(arg1, arg2);
-	//therm_test();
-	therm_load_devID(arg1, arg2);
-	therm_print_devID();
+	therm_test();
+	//therm_load_devID(arg1, arg2);
+	//therm_print_devID();
 }
 void Poke(void) {
 
@@ -298,7 +298,7 @@ void Dump(void) {
 	uint8_t col = 0;
 
 	start = cmdlineGetArgHex(1);
-	stop = cmdlineGetArgHex(2);
+	stop  = cmdlineGetArgHex(2);
 
 	for (address = start; address <= stop; address++) {
 		value = _SFR_MEM8(address);
@@ -552,6 +552,11 @@ void OneWireDelay(void){
 	200    76.4
 	500    189
 	1000   376
+
+	delay_us(count) = 0.3752*count + 0.9983;
+	
+	Calculate count for desired delay 
+	count(desired_delay_us) = 2.665*desired_delay_us - 2.66;
 
 	*/	
 	uint16_t  pin = (uint16_t) cmdlineGetArgInt(1);

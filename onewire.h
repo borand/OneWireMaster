@@ -102,10 +102,10 @@ typedef struct
 	uint8_t  dev_id[8];	
 	int8_t   temp_digit;
 	int16_t  temp_decimal;
-	uint8_t  therm_port;
-	uint8_t  therm_ddr;
-	uint8_t  therm_pin;
-	uint8_t  therm_pin_reg;
+	volatile uint8_t *therm_port;
+	volatile uint8_t *therm_ddr;	
+	volatile uint8_t *therm_pin_reg;
+	uint8_t therm_pin;
 	
 	uint16_t t_conv;
 	uint16_t t_reset_tx;

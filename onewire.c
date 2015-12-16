@@ -65,20 +65,21 @@ void therm_set_pin(uint8_t newPin)
 	8  B   3
 	9  B   4
 	
+	http://electronics.stackexchange.com/questions/120618/are-pointers-treated-differently-in-avr-compared-to-say-x86
 	*/
 	if(newPin < 6)
 	{		
-		DS.therm_port    = PORTD;
-		DS.therm_ddr     = DDRD;
-		DS.therm_pin_reg = PIND;
+		DS.therm_port    = (volatile uint8_t *)0x2B;//PORTD
+		DS.therm_ddr     = (volatile uint8_t *)0x2A;//DDRD;
+		DS.therm_pin_reg = (volatile uint8_t *)0x29;//PIND;
 		DS.therm_pin     = newPin + 2;
 		//rprintf("Setting pin to PORTD %d\n",DS.therm_pin);
 	}
 	else
 	{
-		DS.therm_port    = PORTB;
-		DS.therm_ddr     = DDRB;
-		DS.therm_pin_reg = PINB;
+		DS.therm_port    = (volatile uint8_t *)0x025;//PORTB;
+		DS.therm_ddr     = (volatile uint8_t *)0x024;//DDRB;
+		DS.therm_pin_reg = (volatile uint8_t *)0x023;//PINB;
 		DS.therm_pin     = newPin - 6;
 		//rprintf("Setting pin to PORTB %d",DS.therm_pin);
 	}
@@ -148,11 +149,43 @@ void therm_test(void)
 	rprintf("DS.therm_port = %d\n",DS.therm_port);
 	rprintf("PORTD         = %d\n",PORTD);
 	rprintf("DS.therm_pin  = %d\n",DS.therm_pin);
+
+	uint8_t presence_pulse;
+	TRIG_LOW(TRIG_RESET_PIN);
+
+	// During the initialization sequence the bus master transmits (TX) the reset pulse by pulling the 1-Wire bus
+	// low for a minimum of 480µs. The bus master then releases the bus and goes into receive mode (RX).
+	//THERM_OUTPUT_MODE(DS.therm_ddr, DS.therm_pin);	
+	THERM_OUTPUT_MODE(DS.therm_ddr, DS.therm_pin);	
+	THERM_LOW(DS.therm_port, DS.therm_pin);
+	
+	therm_delay(DS.t_reset_tx); //480 us
+
+	// The bus master then releases the bus and goes into receive mode (RX).
+	// When the bus is released, the 5kΩ pullup resistor pulls the 1-Wire bus high. When the DS detects
+	// this rising edge, it waits 15µs to 60µs and then transmits a presence pulse by pulling the 1-Wire bus low
+	// for 60µs to 240µs.
+
+	THERM_INPUT_MODE(DS.therm_ddr, DS.therm_pin);	
+	therm_delay(DS.t_reset_delay);
+	
+	// We sample to pin to determine if the line was puled low indicating presence pulse.  
+	// We sum 10 readings and if the sum is less than 5 we declare device presence.
+	
+	TRIG_HIGH(TRIG_RESET_PIN);	// We indicate sampling window using TRIG port pins
+	presence_pulse = READ_PIN(DS.therm_pin_reg, DS.therm_pin);;
+	TRIG_LOW(TRIG_RESET_PIN);
+
+	// Wait for the remainder of reset sequence.
+	therm_delay(DS.t_reset_rx); //480 - 75 us	
+	TRIG_HIGH(TRIG_RESET_PIN);	
+	return (presence_pulse == 0);
 }
 /////////////////////////////////////////////////////////////////////////////
 // Low level reset, bit read/write  functions
 uint8_t therm_reset(){
 	/*
+	FROM DS18B20 DATASHEET 
 	All communication with the DS18B20 begins with an initialization sequence that consists of a reset pulse
 	from the master followed by a presence pulse from the DS18B20. This is illustrated in Figure 13. When
 	the DS18B20 sends the presence pulse in response to the reset, it is indicating to the master that it is on
@@ -182,14 +215,25 @@ uint8_t therm_reset(){
 	//THERM_OUTPUT_MODE(DS.therm_ddr, DS.therm_pin);	
 	THERM_OUTPUT_MODE(DDRD, DS.therm_pin);	
 	THERM_LOW(PORTD, DS.therm_pin);
+	
 	therm_delay(DS.t_reset_tx); //480 us
+
+	// The bus master then releases the bus and goes into receive mode (RX).
+	// When the bus is released, the 5kΩ pullup resistor pulls the 1-Wire bus high. When the DS detects
+	// this rising edge, it waits 15µs to 60µs and then transmits a presence pulse by pulling the 1-Wire bus low
+	// for 60µs to 240µs.
 
 	THERM_INPUT_MODE(DDRD, DS.therm_pin);	
 	therm_delay(DS.t_reset_delay);
 	
-	TRIG_HIGH(TRIG_RESET_PIN);	
+	// We sample to pin to determine if the line was puled low indicating presence pulse.  
+	// We sum 10 readings and if the sum is less than 5 we declare device presence.
+	
+	TRIG_HIGH(TRIG_RESET_PIN);	// We indicate sampling window using TRIG port pins
 	presence_pulse = therm_read_n_times(10,5);
-	TRIG_LOW(TRIG_RESET_PIN);	
+	TRIG_LOW(TRIG_RESET_PIN);
+
+	// Wait for the remainder of reset sequence.
 	therm_delay(DS.t_reset_rx); //480 - 75 us	
 	TRIG_HIGH(TRIG_RESET_PIN);	
 	return (presence_pulse == 0);
@@ -199,6 +243,8 @@ void therm_write_bit(uint8_t bit)
 {// Perform single bit write operation 
 
 	/*
+	FROM DS18B20 DATASHEET 
+
 	WRITE TIME SLOTS
 	There are two types of write time slots: “Write 1” time slots and “Write 0” time slots. The bus master
 	uses a Write 1 time slot to write a logic 1 to the DS18B20 and a Write 0 time slot to write a logic 0 to the
@@ -242,7 +288,8 @@ void therm_write_bit(uint8_t bit)
 uint8_t therm_read_bit(void)
 {//	perform single bit read operation 
 	
-	/*
+	/* 
+	FROM DS18B20 DATASHEET 
 	The DS18B20 can only transmit data to the master when the master issues read time slots. Therefore, the
 	master must generate read time slots immediately after issuing a Read Scratchpad [BEh] or Read Power
 	Supply [B4h] command, so that the DS18B20 can provide the requested data. In addition, the master can
@@ -295,9 +342,7 @@ uint8_t therm_read_bit(void)
 	THERM_INPUT_MODE(DDRD, DS.therm_pin);
 	therm_delay(DS.t_read_samp);
 	
-	TRIG_HIGH(TRIG_READ_PIN);
-	//if (PIND & (1 << DS.therm_pin))
-	//	bit = 1;
+	TRIG_HIGH(TRIG_READ_PIN); // indicate read location using TRIG port pin	
 	bit = therm_read_n_times(2,1);
 	TRIG_LOW(TRIG_READ_PIN);
 	
