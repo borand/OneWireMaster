@@ -9,6 +9,7 @@
 #define LOOP_CYCLES 16		//Number of cycles that the loop takes
 #define us(num) (num/(LOOP_CYCLES*(1/(F_CPU/1000000.0))))
 
+
 /* list of these commands translated into C defines:*/
 #define THERM_CMD_CONVERTTEMP 0x44
 #define THERM_CMD_CONVERT_VOLTAGE 0xb4
@@ -47,6 +48,7 @@
 //**************************************************************************
 // Macros for generating trigger pulses for oscilloscope or logic analyzer.
 //
+#define MAX_NUMBER_OF_1WIRE_PORTS 5
 #define TRIG_PORT       PORTC
 #define TRIG_DDR        DDRC
 #define TRIG_RESET_PIN  PINC0
@@ -141,7 +143,7 @@ uint8_t therm_read_devID();
 void    therm_send_devID();
 uint8_t therm_load_devID(uint8_t therm_pin, uint8_t devNum);
 void    therm_set_devID(uint8_t *devID);
-void    therm_save_devID(uint8_t devNum);
+void    therm_save_devID(uint8_t therm_pin, uint8_t devNum);
 uint8_t therm_read_scratchpad(uint8_t numOfbytes);
 void    therm_start_measurement();
 uint8_t therm_read_result(int16_t *temperature);

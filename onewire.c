@@ -385,6 +385,7 @@ uint8_t therm_load_devID(uint8_t therm_pin, uint8_t devNum)
 
 	uint8_t no_error = 0, crc[1], i = 0;
 	uint16_t address_sum = 0;
+
 	for (i = 0; i < 8; i++)
 	{
 		DS.dev_id[i] = eeprom_read_byte(&eeprom.rom[therm_pin][devNum][i]);
@@ -397,12 +398,12 @@ uint8_t therm_load_devID(uint8_t therm_pin, uint8_t devNum)
 	return no_error;
 }
 
-void therm_save_devID(uint8_t devNum)
+void therm_save_devID(uint8_t therm_pin, uint8_t devNum)
 {// Save device id to eeprom
 	uint8_t i;
 	cli();
 	for (i = 0; i < 8; i++)	
-		eeprom_write_byte(&eeprom.rom[DS.therm_pin][devNum][i], DS.dev_id[i]);	
+		eeprom_write_byte(&eeprom.rom[therm_pin][devNum][i], DS.dev_id[i]);	
 	sei();
 }
 
@@ -448,8 +449,13 @@ uint8_t therm_read_devID()
 
 void therm_start_measurement()
 {// Send start conversion command to all devices
-	therm_write_byte(THERM_CMD_SKIPROM);
-	therm_write_byte(THERM_CMD_CONVERTTEMP);
+	
+	for (uint8_t pin = 0; pin < MAX_NUMBER_OF_1WIRE_PORTS; pin++)
+	{
+		therm_set_pin(pin);
+		therm_write_byte(THERM_CMD_SKIPROM);
+		therm_write_byte(THERM_CMD_CONVERTTEMP);
+	}
 }
 uint8_t therm_read_scratchpad(uint8_t numOfbytes){
 	uint8_t i = 0, crc[1], no_error;

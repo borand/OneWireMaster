@@ -27,7 +27,7 @@
 #include "onewire.h"
 #include "main.h"
 
-#define FW_VERSION "\"owire 15.12.15 - DEV\""
+#define FW_VERSION "\"owire 15.12.12\""
 
 ////////////////////////////////////////////////////////////////
 // INTERRUPT CONTROL
@@ -268,7 +268,9 @@ void test(void){
 	uint8_t arg1 = (uint8_t) cmdlineGetArgInt(1);
 	uint8_t arg2 = (uint8_t) cmdlineGetArgInt(2);	
 	//therm_load_devID(arg1, arg2);
-	therm_test();
+	//therm_test();
+	therm_load_devID(arg1, arg2);
+	therm_print_devID();
 }
 void Poke(void) {
 
@@ -355,6 +357,37 @@ void GetTemperature(void){
 	uint8_t i, device_count = 0, loop_count=0, therm_pin=0;
 	int8_t devNum = 0;//(int8_t) cmdlineGetArgInt(1);
 	
+	uint8_t pin;
+	for (pin = 0; pin < MAX_NUMBER_OF_1WIRE_PORTS; pin++)
+	{	
+		if (Flags.print_json) 
+			rprintfProgStrM("[");		
+		i = 0;
+		while(therm_load_devID(pin, i))
+		{
+			if (Flags.print_json)
+			{
+				rprintf("[%d,%d,",pin,i);
+				therm_print_devID();
+				rprintfProgStrM("]");
+			}
+			else
+			{					
+				rprintf("%d, %d, ",pin,i);				
+				therm_print_devID();
+				rprintfProgStrM(" : ");
+				therm_read_result(t);
+				rprintfProgStrM(" : ");
+				therm_print_scratchpad();				
+				rprintfCRLF();
+			}
+			if (Flags.print_json) 
+				rprintfProgStrM("]");
+			i++;				
+		}
+	}
+
+	/*
 	if(Flags.print_json)
 	{
 		rprintfProgStrM("[");
@@ -398,6 +431,7 @@ void GetTemperature(void){
 	{
 		rprintfCRLF();		
 	}
+	*/
 	cmdlinePrintPromptEnd();
 }
 void GetOneWireMeasurements(void){
@@ -415,12 +449,12 @@ void OneWireReadRom(void){
 	cmdlinePrintPromptEnd();
 }
 void OneWireLoadRom(void){
+	
 	uint8_t pin, i;
-	for (pin = 0; pin < 3; pin++)
-	{		
-		therm_set_pin(pin);
+	for (pin = 0; pin < MAX_NUMBER_OF_1WIRE_PORTS; pin++)
+	{	
 		if (Flags.print_json) 
-			rprintfProgStrM("[");
+			rprintfProgStrM("[");		
 		i = 0;
 		while(therm_load_devID(pin, i))
 		{
@@ -440,34 +474,6 @@ void OneWireLoadRom(void){
 				rprintfProgStrM("]");
 			i++;				
 		}
-		// for (i = 0; i < 20, done == 0; i++)
-		// {
-		// 	if (Flags.print_json)
-		// 	{
-		// 		rprintf("[%d,",i);
-		// 			if (therm_load_devID(i))
-		// 				therm_print_devID();
-		// 			else
-		// 				rprintfProgStrM("[]");
-
-		// 			if (i<MAX_NUMBER_OF_1WIRE_DEVICES-1)
-		// 				rprintf("],");
-		// 			else
-		// 				rprintfProgStrM("]");
-		// 	}
-		// 	else
-		// 		{	
-		// 			if (therm_load_devID(i)){
-		// 				rprintf("%d, %d, ",pin,i);
-		// 				therm_print_devID();
-		// 				rprintfCRLF();
-		// 			}else{
-		// 				done = 1;
-		// 			}
-		// 		}
-		// 		if (Flags.print_json) 
-		// 			rprintfProgStrM("]");				
-		// 	}
 	}
 	cmdlinePrintPromptEnd();
 }
@@ -479,7 +485,7 @@ void SaveThermometerIdToRom(void){
 
 	if (devID[0] != 0)
 		therm_set_devID(devID);
-	therm_save_devID(devNum);
+	therm_save_devID(0,devNum);
 	OneWireLoadRom();
 }
 void OneWireReadPage(void){
@@ -506,14 +512,17 @@ void OneWirerintScratchPad(void){
 void OneSearch(void){	
 	uint8_t devNum=0, pin;
 	therm_search_init();
-	for (pin = 0; pin < 3; pin++)
+	
+	for (pin = 0; pin < MAX_NUMBER_OF_1WIRE_PORTS; pin++)
 	{
 		therm_set_pin(pin);
 		devNum=0;
 		while(therm_find_next_dev())
 		{			
-			therm_save_devID(devNum);		
-			therm_test_func();
+			therm_save_devID(pin, devNum);
+			rprintf("[%d,%d,",pin,devNum);
+			therm_print_devID();
+			rprintfCRLF();
 			devNum++;
 		}
 	}
