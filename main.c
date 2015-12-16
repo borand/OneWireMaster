@@ -27,7 +27,7 @@
 #include "onewire.h"
 #include "main.h"
 
-#define FW_VERSION "\"owire 15.12.12\""
+#define FW_VERSION "\"owire 15.12.15 - DEV\""
 
 ////////////////////////////////////////////////////////////////
 // INTERRUPT CONTROL

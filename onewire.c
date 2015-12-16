@@ -13,8 +13,8 @@ EE_RAM_t __attribute__((section (".eeprom"))) eeprom =
 		1280, // uint8_t  t_reset_tx; ~ 480us
 		1063, // uint8_t  t_reset_rx; ~ 400us
 		200,  // t_reset_delay        ~ 75us
-		80,   // uint8_t  t_write_low ~ 30us
-		180,  // uint8_t  t_write_slot~ 70us
+		30,   // uint8_t  t_write_low ~ 30us
+		100,  // uint8_t  t_write_slot~ 70us
 		30,   // uint8_t  t_read_samp;
 		100,  // uint8_t  t_read_slot;
 };
@@ -72,7 +72,7 @@ void therm_set_pin(uint8_t newPin)
 		DS.therm_ddr     = DDRD;
 		DS.therm_pin_reg = PIND;
 		DS.therm_pin     = newPin + 2;
-		rprintf("Setting pin to PORTD %d\n",DS.therm_pin);
+		//rprintf("Setting pin to PORTD %d\n",DS.therm_pin);
 	}
 	else
 	{
@@ -80,11 +80,11 @@ void therm_set_pin(uint8_t newPin)
 		DS.therm_ddr     = DDRB;
 		DS.therm_pin_reg = PINB;
 		DS.therm_pin     = newPin - 6;
-		rprintf("Setting pin to PORTB %d",DS.therm_pin);
+		//rprintf("Setting pin to PORTB %d",DS.therm_pin);
 	}
-	rprintf("DS.therm_ddr  = %d\n",DS.therm_ddr);
-	rprintf("DS.therm_port = %d\n",DS.therm_port);
-	rprintf("DS.therm_pin  = %d\n",DS.therm_pin);
+	//rprintf("DS.therm_ddr  = %d\n",DS.therm_ddr);
+	//rprintf("DS.therm_port = %d\n",DS.therm_port);
+	//rprintf("DS.therm_pin  = %d\n",DS.therm_pin);
 }
 void therm_delay(uint16_t delay)
 {
@@ -298,7 +298,7 @@ uint8_t therm_read_bit(void)
 	TRIG_HIGH(TRIG_READ_PIN);
 	//if (PIND & (1 << DS.therm_pin))
 	//	bit = 1;
-	bit = therm_read_n_times(4,2);
+	bit = therm_read_n_times(2,1);
 	TRIG_LOW(TRIG_READ_PIN);
 	
 	//bit = therm_read_n_times(1,0);	
