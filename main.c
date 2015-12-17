@@ -359,6 +359,12 @@ void GetTemperature(void){
 	int8_t devNum = 0;//(int8_t) cmdlineGetArgInt(1);
 	
 	uint8_t pin;
+	
+	if(Flags.print_json)	
+		rprintfProgStrM("[");	
+	else
+		rprintfCRLF();
+
 	for (pin = 0; pin < MAX_NUMBER_OF_1WIRE_PORTS; pin++)
 	{	
 		therm_set_pin(pin);
@@ -371,6 +377,10 @@ void GetTemperature(void){
 			{
 				rprintf("[%d,%d,",pin,i);
 				therm_print_devID();
+				json_comma();
+				therm_read_result(t);
+				json_comma();
+				therm_print_scratchpad();
 				rprintfProgStrM("]");
 			}
 			else
@@ -380,7 +390,7 @@ void GetTemperature(void){
 				rprintfProgStrM(" : ");
 				therm_read_result(t);
 				rprintfProgStrM(" : ");
-				therm_print_scratchpad();				
+				therm_print_scratchpad();
 				rprintfCRLF();
 			}
 			if (Flags.print_json) 
@@ -389,51 +399,6 @@ void GetTemperature(void){
 		}
 	}
 
-	/*
-	if(Flags.print_json)
-	{
-		rprintfProgStrM("[");
-	}
-	else
-	{
-		rprintfCRLF();
-	}
-	
-	for (i = 1; i <= MAX_NUMBER_OF_1WIRE_DEVICES; i++)
-	{
-		if (therm_load_devID(therm_pin, i) == 1)
-		{
-			loop_count++;
-			if(Flags.print_json)
-			{
-				json_open_bracket();
-				therm_print_devID();json_comma();
-				therm_read_result(t);json_comma();
-				therm_print_scratchpad();
-				json_end_bracket();
-				json_comma();
-			}
-			else{
-				rprintf("%d : ", loop_count);
-				therm_print_devID();
-				rprintfProgStrM(" : ");
-				therm_read_result(t);
-				rprintfProgStrM(" : ");
-				therm_print_scratchpad();
-				rprintfCRLF();
-			}
-		}
-	}
-	if(Flags.print_json)
-	{
-		rprintfProgStrM("[\"0\",0,0]]");
-		cmdlinePrintPromptEnd();
-	}
-	else
-	{
-		rprintfCRLF();		
-	}
-	*/
 	cmdlinePrintPromptEnd();
 }
 void GetOneWireMeasurements(void){
@@ -511,8 +476,7 @@ void OneWirerintScratchPad(void){
 	therm_print_scratchpad();
 	cmdlinePrintPromptEnd();
 }
-void OneWireClearRom(void)
-{
+void OneWireClearRom(void){
 	uint8_t devNum=0, pin, bit;
 	
 	// Blank the entire eprom prior to search
