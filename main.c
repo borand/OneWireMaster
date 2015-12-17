@@ -99,24 +99,25 @@ int main(void)
 
 	//////////////////////////////////////////////////////////////
 	//
-	cmdlineAddCommand("delay",  OneWireDelay);
-	cmdlineAddCommand("wbit",   OneWireWriteBit);
-	cmdlineAddCommand("rbit",   OneWireReadBit);
-	cmdlineAddCommand("wbyte",  OneWireWriteByte);
-	cmdlineAddCommand("rom",    OneWireReadRom);
-	cmdlineAddCommand("reset",  OneWireReset);
-	cmdlineAddCommand("load",   OneWireLoadRom);
-	cmdlineAddCommand("sp",     OneWirerintScratchPad);
-	cmdlineAddCommand("save",   SaveThermometerIdToRom);
-	cmdlineAddCommand("start",  StartTemperatureMeasurement);
-	cmdlineAddCommand("temp",   GetTemperature);
-	cmdlineAddCommand("data",   GetOneWireMeasurements);
-	cmdlineAddCommand("pin",    ChangeTmermPin);
-	cmdlineAddCommand("rp",     OneWireReadPage);
-	cmdlineAddCommand("wp",     OneWireWritePage);
-	cmdlineAddCommand("search", OneSearch);
-	cmdlineAddCommand("timing", OneWirePrintTimingTabel);
-	cmdlineAddCommand("settiming", OneWireSetTimingTabel);
+	cmdlineAddCommand("delay",   OneWireDelay);
+	cmdlineAddCommand("wbit",    OneWireWriteBit);
+	cmdlineAddCommand("rbit",    OneWireReadBit);
+	cmdlineAddCommand("wbyte",   OneWireWriteByte);
+	cmdlineAddCommand("rom",     OneWireReadRom);
+	cmdlineAddCommand("reset",   OneWireReset);
+	cmdlineAddCommand("load",    OneWireLoadRom);
+	cmdlineAddCommand("clearrom",OneWireClearRom);
+	cmdlineAddCommand("sp",      OneWirerintScratchPad);
+	cmdlineAddCommand("save",    SaveThermometerIdToRom);
+	cmdlineAddCommand("start",   StartTemperatureMeasurement);
+	cmdlineAddCommand("temp",    GetTemperature);
+	cmdlineAddCommand("data",    GetOneWireMeasurements);
+	cmdlineAddCommand("pin",     ChangeTmermPin);
+	cmdlineAddCommand("rp",      OneWireReadPage);
+	cmdlineAddCommand("wp",      OneWireWritePage);
+	cmdlineAddCommand("search",  OneSearch);
+	cmdlineAddCommand("timing",  OneWirePrintTimingTabel);
+	cmdlineAddCommand("settime", OneWireSetTimingTabel);
 	
 	//cli();
 	therm_init();
@@ -360,6 +361,7 @@ void GetTemperature(void){
 	uint8_t pin;
 	for (pin = 0; pin < MAX_NUMBER_OF_1WIRE_PORTS; pin++)
 	{	
+		therm_set_pin(pin);
 		if (Flags.print_json) 
 			rprintfProgStrM("[");		
 		i = 0;
@@ -509,10 +511,21 @@ void OneWirerintScratchPad(void){
 	therm_print_scratchpad();
 	cmdlinePrintPromptEnd();
 }
-void OneSearch(void){	
-	uint8_t devNum=0, pin;
-	therm_search_init();
+void OneWireClearRom(void)
+{
+	uint8_t devNum=0, pin, bit;
 	
+	// Blank the entire eprom prior to search
+	therm_search_init();
+	for (pin = 0; pin < MAX_NUMBER_OF_1WIRE_PORTS; pin++)
+	{
+		for (devNum = 0; devNum < MAX_NUMBER_OF_1WIRE_DEVICED_PER_PORT; devNum++)
+		therm_save_devID(pin, devNum);
+	}
+}
+void OneSearch(void){	
+	uint8_t devNum=0, pin, bit;
+	therm_search_init();
 	for (pin = 0; pin < MAX_NUMBER_OF_1WIRE_PORTS; pin++)
 	{
 		therm_set_pin(pin);

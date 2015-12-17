@@ -49,6 +49,8 @@
 // Macros for generating trigger pulses for oscilloscope or logic analyzer.
 //
 #define MAX_NUMBER_OF_1WIRE_PORTS 5
+#define MAX_NUMBER_OF_1WIRE_DEVICED_PER_PORT 10
+
 #define TRIG_PORT       PORTC
 #define TRIG_DDR        DDRC
 #define TRIG_RESET_PIN  PINC0
@@ -93,18 +95,18 @@ typedef struct
 	uint8_t  t_write_slot;
 	uint8_t  t_read_samp;
 	uint8_t  t_read_slot;	
-	uint8_t  rom[10][10][8];
+	uint8_t  rom[MAX_NUMBER_OF_1WIRE_PORTS][MAX_NUMBER_OF_1WIRE_DEVICED_PER_PORT][8];
 } EE_RAM_t;
 
 typedef struct
 {
-	uint8_t  scratchpad[9];
-	uint8_t  dev_id[8];	
-	int8_t   temp_digit;
-	int16_t  temp_decimal;
-	volatile uint8_t *therm_port;
-	volatile uint8_t *therm_ddr;	
-	volatile uint8_t *therm_pin_reg;
+	uint8_t scratchpad[9];
+	uint8_t dev_id[8];	
+	int8_t  temp_digit;
+	int16_t temp_decimal;
+	uint8_t therm_port;
+	uint8_t therm_ddr;	
+	uint8_t therm_pin_reg;
 	uint8_t therm_pin;
 	
 	uint16_t t_conv;

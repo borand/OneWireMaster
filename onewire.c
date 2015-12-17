@@ -69,17 +69,17 @@ void therm_set_pin(uint8_t newPin)
 	*/
 	if(newPin < 6)
 	{		
-		DS.therm_port    = (volatile uint8_t *)0x2B;//PORTD
-		DS.therm_ddr     = (volatile uint8_t *)0x2A;//DDRD;
-		DS.therm_pin_reg = (volatile uint8_t *)0x29;//PIND;
+		DS.therm_port    = _SFR_MEM8(0x2B);//PORTD
+		DS.therm_ddr     = _SFR_MEM8(0x2A);//DDRD;
+		DS.therm_pin_reg = _SFR_MEM8(0x29);//PIND;
 		DS.therm_pin     = newPin + 2;
 		//rprintf("Setting pin to PORTD %d\n",DS.therm_pin);
 	}
 	else
 	{
-		DS.therm_port    = (volatile uint8_t *)0x025;//PORTB;
-		DS.therm_ddr     = (volatile uint8_t *)0x024;//DDRB;
-		DS.therm_pin_reg = (volatile uint8_t *)0x023;//PINB;
+		DS.therm_port    = 0x25;//PORTB;
+		DS.therm_ddr     = 0x24;//DDRB;
+		DS.therm_pin_reg = 0x23;//PINB;
 		DS.therm_pin     = newPin - 6;
 		//rprintf("Setting pin to PORTB %d",DS.therm_pin);
 	}
@@ -149,6 +149,8 @@ void therm_test(void)
 	rprintf("DS.therm_port = %d\n",DS.therm_port);
 	rprintf("PORTD         = %d\n",PORTD);
 	rprintf("DS.therm_pin  = %d\n",DS.therm_pin);
+	rprintf("PORTD         = %d\n",PIND);
+	rprintf("DS.therm_pin  = %d\n",DS.therm_pin_reg);
 
 	uint8_t presence_pulse;
 	TRIG_LOW(TRIG_RESET_PIN);
@@ -496,8 +498,9 @@ void therm_start_measurement()
 {// Send start conversion command to all devices
 	
 	for (uint8_t pin = 0; pin < MAX_NUMBER_OF_1WIRE_PORTS; pin++)
-	{
+	{		
 		therm_set_pin(pin);
+		therm_reset();
 		therm_write_byte(THERM_CMD_SKIPROM);
 		therm_write_byte(THERM_CMD_CONVERTTEMP);
 	}

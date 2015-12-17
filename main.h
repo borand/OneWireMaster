@@ -47,6 +47,7 @@ void OneWireLoadRom(void);
 void SaveThermometerIdToRom(void);
 void OneWireReadRom(void);
 void OneWireReadPage(void);
+void OneWireClearRom(void);
 void OneWirerintScratchPad(void);
 void OneWireWritePage(void);
 void OneSearch(void);

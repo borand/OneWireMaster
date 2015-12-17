@@ -20,7 +20,7 @@
 
 // size of command database
 // (maximum number of commands the cmdline system can handle)
-#define CMDLINE_MAX_COMMANDS	30
+#define CMDLINE_MAX_COMMANDS	35
 
 // maximum length (number of characters) of each command string
 // (quantity must include one additional byte for a null terminator)
