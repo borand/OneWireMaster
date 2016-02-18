@@ -22,6 +22,7 @@ Label_t eep_adc_sn[NUM_OF_ADCS] EEMEM;
 uint8_t  timer1_ovf_count;
 uint16_t timer0_ovf_count;
 uint16_t timer1_count;
+uint16_t devices_found;
 
 
 void SetDevSNs(void);

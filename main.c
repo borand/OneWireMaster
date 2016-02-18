@@ -29,6 +29,11 @@
 
 #define FW_VERSION "\"owire 15.12.12\""
 
+Label_t __attribute__((section (".eeprom"))) eeprom_sn =
+{
+		"owire 1",  // t_conv ms
+};
+
 ////////////////////////////////////////////////////////////////
 // INTERRUPT CONTROL
 void Timer0Func(void)
@@ -61,7 +66,7 @@ int main(void)
 	///////////////////////////////////////////////////////
 	// VARIABLE INIT
 	Flags.print_temp     = 0;
-	Flags.print_json     = 0;
+	Flags.print_json     = 1;
 	Flags.stream_timer_0 = 0;
 
 	///////////////////////////////////////////////////////
@@ -119,9 +124,21 @@ int main(void)
 	cmdlineAddCommand("timing",  OneWirePrintTimingTabel);
 	cmdlineAddCommand("settime", OneWireSetTimingTabel);
 	
+	//total number of devices found on the bus
+	uint8_t i;
+	for (uint8_t pin = 0; pin < MAX_NUMBER_OF_1WIRE_PORTS; pin++)
+	{
+		therm_set_pin(pin);
+		i = 0;
+		while(therm_load_devID(pin, i))
+		{
+			i++;
+			devices_found++;
+		}
+	}
 	//cli();
 	therm_init();
-	GetFW();
+	//GetFW();
 	cmdlinePrintPrompt();
 	CmdLineLoop();
 	return 0;
@@ -205,7 +222,8 @@ void GetFW(void){
 	cmdlinePrintPromptEnd();
 }
 void GetIDN(void){
-	PrintLabel(&eep_dev_sn[0]);
+	//PrintLabel(&eep_dev_sn[0]);
+	PrintLabel(&eeprom_sn);
 	cmdlinePrintPromptEnd();
 }
 void PrintJson(void)
@@ -266,8 +284,8 @@ void PrintLabel(Label_t *eep_label){
 ////////////////////////////////////////////////////////////////
 //Testing and utility functions
 void test(void){
-	uint8_t arg1 = (uint8_t) cmdlineGetArgInt(1);
-	uint8_t arg2 = (uint8_t) cmdlineGetArgInt(2);	
+	//uint8_t arg1 = (uint8_t) cmdlineGetArgInt(1);
+	//uint8_t arg2 = (uint8_t) cmdlineGetArgInt(2);
 	//therm_load_devID(arg1, arg2);
 	therm_test();
 	//therm_load_devID(arg1, arg2);
@@ -355,30 +373,28 @@ void StartTemperatureMeasurement(void){
 }
 void GetTemperature(void){
 	int16_t t[2];
-	uint8_t i, device_count = 0, loop_count=0, therm_pin=0;
 	int8_t devNum = 0;//(int8_t) cmdlineGetArgInt(1);
-	
-	uint8_t pin;
+	uint8_t pin, i;
 	
 	if(Flags.print_json)	
-		rprintfProgStrM("[");	
+		rprintfProgStrM("[");
 	else
 		rprintfCRLF();
 
 	for (pin = 0; pin < MAX_NUMBER_OF_1WIRE_PORTS; pin++)
 	{	
 		therm_set_pin(pin);
-		if (Flags.print_json) 
-			rprintfProgStrM("[");		
 		i = 0;
 		while(therm_load_devID(pin, i))
 		{
 			if (Flags.print_json)
 			{
-				rprintf("[%d,%d,",pin,i);
+				rprintfProgStrM("[");
 				therm_print_devID();
 				json_comma();
 				therm_read_result(t);
+				json_comma();
+				rprintf("%d,%d,",pin,i);
 				json_comma();
 				therm_print_scratchpad();
 				rprintfProgStrM("]");
@@ -393,12 +409,19 @@ void GetTemperature(void){
 				therm_print_scratchpad();
 				rprintfCRLF();
 			}
-			if (Flags.print_json) 
-				rprintfProgStrM("]");
-			i++;				
+			i++;
+			devNum++;
+			if ((Flags.print_json) && (devNum < devices_found))
+			{
+				json_comma();
+			}
+
 		}
 	}
-
+	if (Flags.print_json)
+	{
+		rprintfProgStrM("]");
+	}
 	cmdlinePrintPromptEnd();
 }
 void GetOneWireMeasurements(void){
@@ -477,7 +500,7 @@ void OneWirerintScratchPad(void){
 	cmdlinePrintPromptEnd();
 }
 void OneWireClearRom(void){
-	uint8_t devNum=0, pin, bit;
+	uint8_t devNum=0, pin;
 	
 	// Blank the entire eprom prior to search
 	therm_search_init();
@@ -488,20 +511,47 @@ void OneWireClearRom(void){
 	}
 }
 void OneSearch(void){	
-	uint8_t devNum=0, pin, bit;
+	uint8_t devNum=0, pin;
 	therm_search_init();
+	devices_found = 0;
+
+	if(Flags.print_json)
+		rprintfProgStrM("[");
+	else
+		rprintfCRLF();
+
 	for (pin = 0; pin < MAX_NUMBER_OF_1WIRE_PORTS; pin++)
 	{
 		therm_set_pin(pin);
 		devNum=0;
 		while(therm_find_next_dev())
-		{			
+		{
+
 			therm_save_devID(pin, devNum);
-			rprintf("[%d,%d,",pin,devNum);
-			therm_print_devID();
-			rprintfCRLF();
+			if (Flags.print_json)
+			{
+				rprintfProgStrM("[");
+				rprintf("%d,%d,",pin,devNum);
+				therm_print_devID();
+				rprintfProgStrM("]");
+			}
+			else
+			{
+				rprintf("%d,%d,",pin,devNum);
+				therm_print_devID();
+				rprintfCRLF();
+			}
+
 			devNum++;
+			devices_found++;
+			if (Flags.print_json)
+				json_comma();
+
 		}
+	}
+	if (Flags.print_json)
+	{
+		rprintfProgStrM("[-1,-1]]");
 	}
 	cmdlinePrintPromptEnd();
 }
