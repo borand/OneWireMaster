@@ -183,6 +183,7 @@ void CmdLineLoop(void){
 		{
 			Flags.print_temp = 0;
 			rprintfProgStrM("owtemp\",\"data\":");
+			delay_ms(1000);
 			GetTemperature();			
 			cmdlinePrintPrompt();
 		}
@@ -395,7 +396,6 @@ void GetTemperature(void){
 				therm_read_result(t);
 				json_comma();
 				rprintf("%d,%d,",pin,i);
-				json_comma();
 				therm_print_scratchpad();
 				rprintfProgStrM("]");
 			}
